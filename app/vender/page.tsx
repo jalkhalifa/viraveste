@@ -36,6 +36,8 @@ export default function SellPage() {
   const [luxuryDocuments, setLuxuryDocuments] = useState<File[]>([]);
   const [brand, setBrand] = useState("Amissima");
   const [size, setSize] = useState("M");
+  const [dimensions, setDimensions] = useState("");
+  const [color, setColor] = useState("Terracota");
   const [condition, setCondition] = useState("Excelente");
   const [description, setDescription] = useState("Vestido usado apenas duas vezes, sem manchas, rasgos ou ajustes.");
   const [price, setPrice] = useState("189,00");
@@ -82,7 +84,7 @@ export default function SellPage() {
     if (category === "Peças de luxo" && !luxuryDocuments.length) { setPublishError("Anexe a documentação obrigatória da peça de luxo."); setStep(2); return; }
     setPublishing(true);
     const form = new FormData();
-    form.set("title", title); form.set("category", category); form.set("otherCategory", otherCategory); form.set("brand", brand); form.set("size", size); form.set("condition", condition); form.set("description", description); form.set("mode", mode); form.set("price", price); form.set("startingBid", startingBid);
+    form.set("title", title); form.set("category", category); form.set("otherCategory", otherCategory); form.set("brand", brand); form.set("size", size); form.set("dimensions", dimensions); form.set("color", color); form.set("condition", condition); form.set("description", description); form.set("mode", mode); form.set("price", price); form.set("startingBid", startingBid);
     form.set("durationHours", duration === "1 hora" ? "1" : duration === "6 horas" ? "6" : duration === "3 dias" ? "72" : "24");
     photos.forEach(photo => form.append("photos", photo.file)); luxuryDocuments.forEach(document => form.append("documents", document));
     try {
@@ -94,6 +96,11 @@ export default function SellPage() {
     } catch (error) { setPublishError(error instanceof Error ? error.message : "Não foi possível publicar o anúncio."); }
     finally { setPublishing(false); }
   }
+
+  const usesDimensions = ["Objetos e decoração", "Casa, mesa e banho", "Móveis", "Antiguidades e colecionáveis", "Livros", "Arte e artesanato", "Outro"].includes(category);
+  const numericPrice = Number(price.replace(/\./g, "").replace(",", "."));
+  const sellerReceives = Number.isFinite(numericPrice) && numericPrice > 0 ? numericPrice * 0.9 : 0;
+  const sellerReceivesLabel = sellerReceives.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   if (published) {
     return (
@@ -166,7 +173,8 @@ export default function SellPage() {
               <label><span>Categoria</span><select value={category} onChange={event => setCategory(event.target.value)}><optgroup label="Moda"><option>Vestidos</option><option>Blusas</option><option>Calças</option><option>Casacos</option><option>Bolsas</option><option>Calçados</option><option>Acessórios</option><option>Peças de luxo</option></optgroup><optgroup label="Casa e objetos"><option>Objetos e decoração</option><option>Casa, mesa e banho</option><option>Móveis</option></optgroup><optgroup label="Especiais"><option>Antiguidades e colecionáveis</option><option>Livros</option><option>Arte e artesanato</option><option>Outro</option></optgroup></select></label>
               {category === "Outro" && <label><span>Qual categoria?</span><input required value={otherCategory} onChange={event => setOtherCategory(event.target.value)} placeholder="Escreva a categoria" /></label>}
               <label><span>Marca</span><input required value={brand} onChange={event => setBrand(event.target.value)} /></label>
-              <label><span>Tamanho</span><select value={size} onChange={event => setSize(event.target.value)}><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option></select></label>
+              {usesDimensions ? <label><span>Dimensões</span><input required value={dimensions} onChange={event => setDimensions(event.target.value)} placeholder="Ex.: 30 × 20 × 12 cm" /></label> : <label><span>Tamanho</span><select value={size} onChange={event => setSize(event.target.value)}><option>PP</option><option>P</option><option>M</option><option>G</option><option>GG</option><option>Único</option></select></label>}
+              <label><span>Cor predominante</span><input required value={color} onChange={event => setColor(event.target.value)} placeholder="Ex.: terracota" /></label>
               <label><span>Estado de conservação</span><select value={condition} onChange={event => setCondition(event.target.value)}><option>Novo com etiqueta</option><option>Como novo</option><option>Excelente</option><option>Bom estado</option></select></label>
               <label className="field-wide"><span>Descrição</span><textarea required rows={5} value={description} onChange={event => setDescription(event.target.value)} /><small>{description.length}/500 caracteres</small></label>
               {category === "Peças de luxo" && <section className="luxury-documents field-wide">
@@ -191,7 +199,7 @@ export default function SellPage() {
             </div>
             {mode === "fixed" ? <div className="pricing-card">
               <label><span>Preço da peça</span><div className="money-input"><b>R$</b><input required value={price} onChange={event => setPrice(event.target.value)} inputMode="decimal" /></div></label>
-              <div className="price-summary"><span>Você receberá</span><strong>R$ 170,10</strong><small>Estimativa após a tarifa de venda de 10%.</small></div>
+              <div className="price-summary"><span>Você receberá</span><strong>{sellerReceivesLabel}</strong><small>Estimativa após a tarifa de venda de 10%.</small></div>
             </div> : <div className="pricing-card auction-card">
               <label><span>Lance inicial</span><div className="money-input"><b>R$</b><input required value={startingBid} onChange={event => setStartingBid(event.target.value)} inputMode="decimal" /></div></label>
               <label><span>Duração do leilão</span><select value={duration} onChange={event => setDuration(event.target.value)}><option>1 hora</option><option>6 horas</option><option>24 horas</option><option>3 dias</option></select></label>
@@ -204,7 +212,7 @@ export default function SellPage() {
             <div className="step-heading"><p>Etapa 4 de 4</p><h2>Revise antes de publicar</h2><span>Confira os dados e volte a qualquer etapa se precisar corrigir algo.</span></div>
             <div className="review-card">
               <div className="review-photo">{photos[0] ? <img src={photos[0].url} alt="Capa escolhida para o anúncio" /> : <span><ImagePlus /><small>Sem foto</small></span>}</div>
-              <div className="review-copy"><span className="review-mode">{mode === "fixed" ? <><Tag /> Preço fixo</> : <><Gavel /> Leilão</>}</span><h3>{title}</h3><p>{category === "Outro" ? otherCategory || "Outro" : category} · {brand} · Tamanho {size} · {condition}</p><strong>{mode === "fixed" ? `R$ ${price}` : `Lance inicial: R$ ${startingBid}`}</strong>{mode === "auction" && <small>Duração: {duration}</small>}</div>
+              <div className="review-copy"><span className="review-mode">{mode === "fixed" ? <><Tag /> Preço fixo</> : <><Gavel /> Leilão</>}</span><h3>{title}</h3><p>{category === "Outro" ? otherCategory || "Outro" : category} · {brand} · {usesDimensions ? dimensions || "Dimensões não informadas" : `Tamanho ${size}`} · {color} · {condition}</p><strong>{mode === "fixed" ? `R$ ${price}` : `Lance inicial: R$ ${startingBid}`}</strong>{mode === "auction" && <small>Duração: {duration}</small>}</div>
               <button onClick={() => setStep(2)}>Editar <ChevronRight /></button>
             </div>
             {category === "Peças de luxo" && <div className="luxury-review"><FileCheck2 /><span><strong>Documentação anexada</strong><small>{luxuryDocuments.length} {luxuryDocuments.length === 1 ? "arquivo enviado" : "arquivos enviados"} para verificação de autenticidade.</small></span></div>}
