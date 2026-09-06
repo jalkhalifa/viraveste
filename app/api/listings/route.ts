@@ -32,15 +32,21 @@ function publicUrl(baseUrl: string, path: string) { return `${baseUrl}/storage/v
 export async function GET(request: Request) {
   const runtime = config();
   if (!runtime) return Response.json({ error: "A conexão com o catálogo ainda não está configurada." }, { status: 503 });
-  const requestUrl = new URL(request.url); const mine = requestUrl.searchParams.get("mine") === "1"; const listingId = requestUrl.searchParams.get("id");
+  const requestUrl = new URL(request.url); const mine = requestUrl.searchParams.get("mine") === "1"; const listingId = requestUrl.searchParams.get("id"); const sellerId = requestUrl.searchParams.get("seller");
   const user = mine ? await userFor(request, runtime) : null;
   if (mine && !user) return Response.json({ error: "Sua sessão expirou." }, { status: 401 });
-  const fields = "id,title,description,category,brand,size,dimensions,color,item_condition,sale_mode,price,starting_bid,auction_ends_at,image_urls,luxury_document_count,status,created_at";
-  if (listingId && !/^[0-9a-f-]{36}$/i.test(listingId)) return Response.json({ error: "Anúncio inválido." }, { status: 400 });
-  const filter = mine ? `seller_id=eq.${user!.id}${listingId?`&id=eq.${encodeURIComponent(listingId)}`:""}` : listingId ? `id=eq.${encodeURIComponent(listingId)}&status=eq.published` : "status=eq.published";
+  const fields = "id,seller_id,title,description,category,brand,size,dimensions,color,item_condition,sale_mode,price,starting_bid,auction_ends_at,image_urls,luxury_document_count,status,created_at";
+  if ((listingId && !/^[0-9a-f-]{36}$/i.test(listingId)) || (sellerId && !/^[0-9a-f-]{36}$/i.test(sellerId))) return Response.json({ error: "Anúncio ou vendedor inválido." }, { status: 400 });
+  const filter = mine ? `seller_id=eq.${user!.id}${listingId?`&id=eq.${encodeURIComponent(listingId)}`:""}` : listingId ? `id=eq.${encodeURIComponent(listingId)}&status=eq.published` : sellerId ? `seller_id=eq.${encodeURIComponent(sellerId)}&status=eq.published` : "status=eq.published";
   const response = await fetch(`${runtime.baseUrl}/rest/v1/listings?select=${fields}&${filter}&order=created_at.desc`, { headers: authHeaders(runtime.apiKey, user?.token), cache: "no-store" });
   if (!response.ok) return Response.json({ error: "Não foi possível carregar os anúncios." }, { status: response.status });
-  const rows = await response.json() as unknown[];
+  const rows = await response.json() as Array<Record<string,unknown>>;
+  const sellerIds = [...new Set(rows.map(row => String(row.seller_id || "")).filter(Boolean))];
+  if (sellerIds.length) {
+    const inFilter = `(${sellerIds.join(",")})`;
+    const profilesResponse = await fetch(`${runtime.baseUrl}/rest/v1/public_seller_profiles?select=id,display_name,city,state,avatar_url,member_since&id=in.${encodeURIComponent(inFilter)}`, { headers: authHeaders(runtime.apiKey), cache:"no-store" });
+    if (profilesResponse.ok) { const profiles = await profilesResponse.json() as Array<Record<string,unknown>>; const byId = new Map(profiles.map(profile => [profile.id, profile])); rows.forEach(row => { row.seller = byId.get(row.seller_id) ?? null; }); }
+  }
   if (listingId) return rows.length ? Response.json({ listing: rows[0] }) : Response.json({ error: "Anúncio não encontrado ou indisponível." }, { status: 404 });
   return Response.json({ listings: rows });
 }
