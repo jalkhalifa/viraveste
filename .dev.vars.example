@@ -1,0 +1,4 @@
+# Copie este arquivo para .dev.vars e preencha com os dados do seu Supabase.
+# Nunca envie o arquivo .dev.vars ao GitHub.
+SUPABASE_URL=https://SEU-PROJETO.supabase.co
+SUPABASE_PUBLISHABLE_KEY=SUA_CHAVE_PUBLICAVEL
