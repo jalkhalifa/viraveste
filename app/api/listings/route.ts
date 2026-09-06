@@ -29,13 +29,38 @@ function safeFileName(file: File, index: number) {
 }
 function publicUrl(baseUrl: string, path: string) { return `${baseUrl}/storage/v1/object/public/listing-images/${path.split("/").map(encodeURIComponent).join("/")}`; }
 
-export async function GET() {
+export async function GET(request: Request) {
   const runtime = config();
   if (!runtime) return Response.json({ error: "A conexão com o catálogo ainda não está configurada." }, { status: 503 });
-  const fields = "id,title,description,category,brand,size,item_condition,sale_mode,price,starting_bid,auction_ends_at,image_urls,created_at";
-  const response = await fetch(`${runtime.baseUrl}/rest/v1/listings?select=${fields}&status=eq.published&order=created_at.desc`, { headers: authHeaders(runtime.apiKey), cache: "no-store" });
+  const mine = new URL(request.url).searchParams.get("mine") === "1";
+  const user = mine ? await userFor(request, runtime) : null;
+  if (mine && !user) return Response.json({ error: "Sua sessão expirou." }, { status: 401 });
+  const fields = "id,title,description,category,brand,size,item_condition,sale_mode,price,starting_bid,auction_ends_at,image_urls,status,created_at";
+  const filter = mine ? `seller_id=eq.${user!.id}` : "status=eq.published";
+  const response = await fetch(`${runtime.baseUrl}/rest/v1/listings?select=${fields}&${filter}&order=created_at.desc`, { headers: authHeaders(runtime.apiKey, user?.token), cache: "no-store" });
   if (!response.ok) return Response.json({ error: "Não foi possível carregar os anúncios." }, { status: response.status });
   return Response.json({ listings: await response.json() });
+}
+
+export async function PATCH(request: Request) {
+  const runtime = config(); if (!runtime) return Response.json({ error: "Conexão não configurada." }, { status: 503 });
+  const user = await userFor(request, runtime); if (!user) return Response.json({ error: "Sua sessão expirou." }, { status: 401 });
+  const body = await request.json() as { id?: string; status?: string }; const id = String(body.id ?? ""); const status = String(body.status ?? "");
+  if (!id || !["published","paused"].includes(status)) return Response.json({ error: "Alteração inválida." }, { status: 400 });
+  const response = await fetch(`${runtime.baseUrl}/rest/v1/listings?id=eq.${encodeURIComponent(id)}&seller_id=eq.${user.id}`, { method:"PATCH", headers:authHeaders(runtime.apiKey,user.token,{"content-type":"application/json",Prefer:"return=representation"}), body:JSON.stringify({status}) });
+  if (!response.ok) return Response.json({ error: "Não foi possível alterar o anúncio." }, { status: response.status });
+  const rows = await response.json() as unknown[]; if (!rows.length) return Response.json({ error: "Anúncio não encontrado." }, { status: 404 });
+  return Response.json({ listing: rows[0] });
+}
+
+export async function DELETE(request: Request) {
+  const runtime = config(); if (!runtime) return Response.json({ error: "Conexão não configurada." }, { status: 503 });
+  const user = await userFor(request, runtime); if (!user) return Response.json({ error: "Sua sessão expirou." }, { status: 401 });
+  const id = new URL(request.url).searchParams.get("id") ?? ""; if (!id) return Response.json({ error: "Anúncio não informado." }, { status: 400 });
+  const response = await fetch(`${runtime.baseUrl}/rest/v1/listings?id=eq.${encodeURIComponent(id)}&seller_id=eq.${user.id}`, { method:"DELETE", headers:authHeaders(runtime.apiKey,user.token,{Prefer:"return=representation"}) });
+  if (!response.ok) return Response.json({ error: "Não foi possível excluir o anúncio." }, { status: response.status });
+  const rows = await response.json() as unknown[]; if (!rows.length) return Response.json({ error: "Anúncio não encontrado." }, { status: 404 });
+  return Response.json({ success:true });
 }
 
 export async function POST(request: Request) {
