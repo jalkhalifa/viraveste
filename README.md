@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ViraVeste
 
 Marketplace brasileiro de produtos de segunda mão com vendas diretas e leilões.
@@ -81,3 +82,7 @@ npm run lint
 5. Integrar pagamentos, logística e painel administrativo.
 
 Projeto privado. Todos os direitos reservados.
+=======
+# viraveste
+Marketplace brasileiro de produtos de segunda mão com vendas diretas e leilões.
+>>>>>>> 57d5835a308a07ac5daa22b1ea6d0f82447030b5
