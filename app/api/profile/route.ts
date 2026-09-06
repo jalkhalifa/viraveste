@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const { baseUrl, apiKey } = config(); const token = cookie(request, "vv_access_token");
   if (!baseUrl || !apiKey || !token) return output({ error: "Sessão não encontrada." }, 401);
   const user = await currentUser(baseUrl, apiKey, token); if (!user) return output({ error: "Sessão expirada." }, 401);
-  const response = await fetch(`${baseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=full_name,phone,city,state,wants_to_buy,wants_to_sell,account_status`, { headers: { apikey: apiKey, Authorization: `Bearer ${token}`, Accept: "application/vnd.pgrst.object+json" }, cache: "no-store" });
+  const response = await fetch(`${baseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=full_name,phone,city,state,bio,wants_to_buy,wants_to_sell,account_status`, { headers: { apikey: apiKey, Authorization: `Bearer ${token}`, Accept: "application/vnd.pgrst.object+json" }, cache: "no-store" });
   if (!response.ok) return output({ error: "Não foi possível carregar o perfil." }, response.status);
   return output({ profile: await response.json(), email: user.email ?? "" });
 }
@@ -19,7 +19,7 @@ export async function PATCH(request: Request) {
   if (!baseUrl || !apiKey || !token) return output({ error: "Sessão não encontrada." }, 401);
   const user = await currentUser(baseUrl, apiKey, token); if (!user) return output({ error: "Sessão expirada." }, 401);
   const body = await request.json() as Record<string, unknown>;
-  const profile = { full_name: String(body.full_name ?? "").trim().slice(0, 120), phone: String(body.phone ?? "").trim().slice(0, 30), city: String(body.city ?? "").trim().slice(0, 100), state: String(body.state ?? "").trim().slice(0, 30), wants_to_buy: Boolean(body.wants_to_buy), wants_to_sell: Boolean(body.wants_to_sell) };
+  const profile = { full_name: String(body.full_name ?? "").trim().slice(0, 120), phone: String(body.phone ?? "").trim().slice(0, 30), city: String(body.city ?? "").trim().slice(0, 100), state: String(body.state ?? "").trim().slice(0, 30), bio: String(body.bio ?? "").trim().slice(0, 500), wants_to_buy: Boolean(body.wants_to_buy), wants_to_sell: Boolean(body.wants_to_sell) };
   if (!profile.full_name) return output({ error: "Informe seu nome." }, 400);
   const response = await fetch(`${baseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}`, { method: "PATCH", headers: { apikey: apiKey, Authorization: `Bearer ${token}`, "content-type": "application/json", Prefer: "return=representation" }, body: JSON.stringify(profile) });
   if (!response.ok) return output({ error: "Não foi possível salvar o perfil." }, response.status);
