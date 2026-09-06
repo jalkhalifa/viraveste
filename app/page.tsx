@@ -1,4 +1,5 @@
 import { Bell, ChevronDown, Heart, Home, Leaf, Menu, MessageCircle, Plus, Search, ShieldCheck, Tag, UserRound } from "lucide-react";
+import { NotificationBell } from "@/components/notification-bell";
 
 const closets=[
  {name:"Camila",initials:"CA",tone:"#f05a47",pieces:"12 peças"},
@@ -28,7 +29,7 @@ export default function HomePage(){
    <a className="brand" href="#"><span className="brand-cycle"><Leaf/></span><span>ViraVeste<small>Seu armário em movimento.</small></span></a>
    <form className="top-search" action="/buscar" method="get"><Search/><input name="q" aria-label="Buscar" placeholder="Buscar peças, marcas ou armários"/><button type="submit" aria-label="Pesquisar">Buscar</button></form>
    <nav className="header-links"><a href="#produtos">Comprar</a><a href="/leiloes">Leilões</a><a href="#armarios">Armários</a></nav>
-   <div className="top-actions"><button className="bare" aria-label="Notificações"><Bell/></button><button className="bare desktop-only" aria-label="Mensagens"><MessageCircle/></button><a className="login desktop-only" href="/entrar">Entrar</a><a className="sell desktop-only" href="/vender"><Plus/> Vender</a></div>
+   <div className="top-actions"><NotificationBell/><a className="bare desktop-only" aria-label="Mensagens" href="/perfil/mensagens"><MessageCircle/></a><a className="login desktop-only" href="/entrar">Entrar</a><a className="sell desktop-only" href="/vender"><Plus/> Vender</a></div>
   </div></header>
   <nav className="category-nav" aria-label="Categorias"><div>{categories.map((c,i)=><a className={i===0?"active":""} href={`/buscar?categoria=${encodeURIComponent(c)}`} key={c}>{c}</a>)}</div></nav>
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ArrowLeft, Bell, Check, ChevronRight, CreditCard, FileCheck2, Gavel, Heart, Home, Leaf, LogOut, MapPin, MessageCircle, Package, PackageCheck, Pencil, Plus, Save, Settings, ShoppingBag, Star, Trash2, Truck, UserPlus, UserRound, X } from "lucide-react";
+import { NotificationBell } from "@/components/notification-bell";
 
 type Profile = { full_name: string; phone: string; city: string; state: string; bio: string; wants_to_buy: boolean; wants_to_sell: boolean; account_status: string };
 type Address = { id?: string; label: string; recipient_name: string; postal_code: string; street: string; number: string; complement: string | null; neighborhood: string; city: string; state: string; country_code?: string; is_default: boolean };
@@ -38,7 +39,7 @@ export default function ProfileOverviewPage() {
     <header className="wallet-header">
       <a className="brand" href="/"><span className="brand-cycle"><Leaf /></span><span>ViraVeste<small>Seu armário em movimento.</small></span></a>
       <a href="/"><ArrowLeft /> Voltar para a ViraVeste</a>
-      <button className="profile-bell" aria-label="Notificações"><Bell /><i>3</i></button>
+      <NotificationBell className="profile-bell"/>
       <button className="profile-logout" onClick={logout}><LogOut /> Sair</button><div><span>{initials}</span><strong>{firstName}</strong></div>
     </header>
 
