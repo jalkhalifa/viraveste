@@ -26,11 +26,11 @@ export default function HomePage(){
   <header className="topbar"><div className="topbar-inner">
    <button className="bare mobile-only" aria-label="Abrir menu"><Menu/></button>
    <a className="brand" href="#"><span className="brand-cycle"><Leaf/></span><span>ViraVeste<small>Seu armário em movimento.</small></span></a>
-   <form className="top-search"><Search/><input aria-label="Buscar" placeholder="Buscar peças, marcas ou armários"/></form>
+   <form className="top-search" action="/buscar" method="get"><Search/><input name="q" aria-label="Buscar" placeholder="Buscar peças, marcas ou armários"/><button type="submit" aria-label="Pesquisar">Buscar</button></form>
    <nav className="header-links"><a href="#produtos">Comprar</a><a href="/leiloes">Leilões</a><a href="#armarios">Armários</a></nav>
    <div className="top-actions"><button className="bare" aria-label="Notificações"><Bell/></button><button className="bare desktop-only" aria-label="Mensagens"><MessageCircle/></button><a className="login desktop-only" href="/entrar">Entrar</a><a className="sell desktop-only" href="/vender"><Plus/> Vender</a></div>
   </div></header>
-  <nav className="category-nav" aria-label="Categorias"><div>{categories.map((c,i)=><a className={i===0?"active":""} href="#produtos" key={c}>{c}</a>)}</div></nav>
+  <nav className="category-nav" aria-label="Categorias"><div>{categories.map((c,i)=><a className={i===0?"active":""} href={`/buscar?categoria=${encodeURIComponent(c)}`} key={c}>{c}</a>)}</div></nav>
 
   <div className="page-shell">
    <section className="intro">
@@ -55,12 +55,12 @@ export default function HomePage(){
       <div className="seller-line"><Avatar initials={p.avatar} tone={p.tone}/><div><strong>{p.seller}</strong><span>{p.city}</span></div><button aria-label="Conversar"><MessageCircle/></button></div>
      </article>)}
     </div>
-    <button className="load-more">Ver mais peças</button>
+    <a className="load-more" href="/buscar">Ver mais peças</a>
    </section>
 
    <section className="trust" id="seguranca"><div><ShieldCheck/><span><strong>Compra protegida</strong><small>O valor só é liberado após o recebimento.</small></span></div><div><Tag/><span><strong>Anúncio gratuito</strong><small>Você paga somente quando vender.</small></span></div><a href="/politicas">Entenda como funciona →</a></section>
   </div>
   <footer><div><a className="footer-brand" href="#">ViraVeste</a><p>Seu armário em movimento.</p></div><nav><a href="/politicas">Políticas</a><a href="/politicas#devolucoes">Devoluções</a><a href="/politicas#privacidade">Privacidade</a><a href="/politicas#leiloes">Leilões</a></nav><span>© 2026 ViraVeste</span></footer>
-  <nav className="mobile-tabs"><a className="active" href="#"><Home/><span>Início</span></a><a href="#produtos"><Search/><span>Buscar</span></a><a className="create" href="/vender"><i><Plus/></i><b>Vender</b></a><a href="#"><Heart/><span>Favoritos</span></a><a href="/entrar"><UserRound/><span>Entrar</span></a></nav>
+  <nav className="mobile-tabs"><a className="active" href="#"><Home/><span>Início</span></a><a href="/buscar"><Search/><span>Buscar</span></a><a className="create" href="/vender"><i><Plus/></i><b>Vender</b></a><a href="#"><Heart/><span>Favoritos</span></a><a href="/entrar"><UserRound/><span>Entrar</span></a></nav>
  </main>
 }
