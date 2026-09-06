@@ -28,12 +28,12 @@ const steps = ["Fotos", "Detalhes", "Venda", "Revisão"];
 export default function SellPage() {
   const [step, setStep] = useState(1);
   const [published, setPublished] = useState(false);
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<Array<{ file: File; url: string }>>([]);
   const [mode, setMode] = useState<SaleMode>("fixed");
   const [title, setTitle] = useState("Vestido midi de linho");
   const [category, setCategory] = useState("Vestidos");
   const [otherCategory, setOtherCategory] = useState("");
-  const [luxuryDocuments, setLuxuryDocuments] = useState<string[]>([]);
+  const [luxuryDocuments, setLuxuryDocuments] = useState<File[]>([]);
   const [brand, setBrand] = useState("Amissima");
   const [size, setSize] = useState("M");
   const [condition, setCondition] = useState("Excelente");
@@ -42,20 +42,22 @@ export default function SellPage() {
   const [startingBid, setStartingBid] = useState("80,00");
   const [duration, setDuration] = useState("24 horas");
   const [sellerPolicyAccepted, setSellerPolicyAccepted] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState("");
 
   function addPhotos(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []).slice(0, 5 - photos.length);
-    setPhotos(current => [...current, ...files.map(file => URL.createObjectURL(file))]);
+    setPhotos(current => [...current, ...files.map(file => ({ file, url: URL.createObjectURL(file) }))]);
     event.target.value = "";
   }
 
   function removePhoto(index: number) {
-    setPhotos(current => current.filter((_, photoIndex) => photoIndex !== index));
+    setPhotos(current => { URL.revokeObjectURL(current[index].url); return current.filter((_, photoIndex) => photoIndex !== index); });
   }
 
   function addLuxuryDocuments(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []).slice(0, 5 - luxuryDocuments.length);
-    setLuxuryDocuments(current => [...current, ...files.map(file => file.name)]);
+    setLuxuryDocuments(current => [...current, ...files]);
     event.target.value = "";
   }
 
@@ -74,6 +76,25 @@ export default function SellPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  async function publish() {
+    setPublishError("");
+    if (!photos.length) { setPublishError("Adicione pelo menos uma foto antes de publicar."); setStep(1); return; }
+    if (category === "Peças de luxo" && !luxuryDocuments.length) { setPublishError("Anexe a documentação obrigatória da peça de luxo."); setStep(2); return; }
+    setPublishing(true);
+    const form = new FormData();
+    form.set("title", title); form.set("category", category); form.set("otherCategory", otherCategory); form.set("brand", brand); form.set("size", size); form.set("condition", condition); form.set("description", description); form.set("mode", mode); form.set("price", price); form.set("startingBid", startingBid);
+    form.set("durationHours", duration === "1 hora" ? "1" : duration === "6 horas" ? "6" : duration === "3 dias" ? "72" : "24");
+    photos.forEach(photo => form.append("photos", photo.file)); luxuryDocuments.forEach(document => form.append("documents", document));
+    try {
+      const response = await fetch("/api/listings", { method: "POST", body: form });
+      const result = await response.json() as { error?: string };
+      if (response.status === 401) { window.location.href = "/entrar"; return; }
+      if (!response.ok) throw new Error(result.error || "Não foi possível publicar o anúncio.");
+      setPublished(true);
+    } catch (error) { setPublishError(error instanceof Error ? error.message : "Não foi possível publicar o anúncio."); }
+    finally { setPublishing(false); }
+  }
+
   if (published) {
     return (
       <main className="sell-success-page">
@@ -82,7 +103,7 @@ export default function SellPage() {
           <span><Check /></span>
           <p className="eyebrow">Tudo certo</p>
           <h1>Seu anúncio está pronto!</h1>
-          <p>Nesta demonstração ele ainda não foi salvo. Quando conectarmos o cadastro e o banco de dados, essa publicação passará a aparecer no feed.</p>
+          <p>O anúncio foi salvo com segurança e já pode aparecer no catálogo do ViraVeste.</p>
           <div>
             <a className="success-primary" href="/">Voltar para a vitrine</a>
             <button onClick={() => { setPublished(false); setStep(1); }}>Criar outro anúncio</button>
@@ -121,14 +142,14 @@ export default function SellPage() {
           {step === 1 && <form onSubmit={next} className="sell-step">
             <div className="step-heading"><p>Etapa 1 de 4</p><h2>Adicione as fotos da peça</h2><span>Você pode incluir até 5 fotos. A primeira será a capa do anúncio.</span></div>
             <div className="photo-uploader">
-              {photos.map((photo, index) => <figure key={photo} className="uploaded-photo">
-                <img src={photo} alt={`Foto ${index + 1} da peça`} />
+              {photos.map((photo, index) => <figure key={photo.url} className="uploaded-photo">
+                <img src={photo.url} alt={`Foto ${index + 1} da peça`} />
                 {index === 0 && <figcaption>Capa</figcaption>}
                 <button type="button" onClick={() => removePhoto(index)} aria-label={`Remover foto ${index + 1}`}><X /></button>
               </figure>)}
               {photos.length < 5 && <label className="upload-slot">
-                <input type="file" accept="image/*" multiple onChange={addPhotos} />
-                <ImagePlus /><strong>Adicionar fotos</strong><small>JPG, PNG ou HEIC</small>
+                <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={addPhotos} />
+                <ImagePlus /><strong>Adicionar fotos</strong><small>JPG, PNG ou WEBP</small>
               </label>}
             </div>
             <div className="photo-guidance">
@@ -151,7 +172,7 @@ export default function SellPage() {
               {category === "Peças de luxo" && <section className="luxury-documents field-wide">
                 <div className="luxury-doc-heading"><FileCheck2 /><span><strong>Documentação obrigatória</strong><small>Anexe nota fiscal, certificado de autenticidade ou outro comprovante de procedência.</small></span></div>
                 <label className="document-upload"><Upload /><span><strong>Anexar documentação</strong><small>PDF, JPG ou PNG · até 5 arquivos</small></span><input required={luxuryDocuments.length === 0} type="file" accept=".pdf,image/jpeg,image/png" multiple onChange={addLuxuryDocuments} /></label>
-                {luxuryDocuments.length > 0 && <ul>{luxuryDocuments.map((document, index) => <li key={`${document}-${index}`}><FileCheck2 /><span>{document}</span><button type="button" onClick={() => removeLuxuryDocument(index)} aria-label={`Remover ${document}`}><X /></button></li>)}</ul>}
+                {luxuryDocuments.length > 0 && <ul>{luxuryDocuments.map((document, index) => <li key={`${document.name}-${index}`}><FileCheck2 /><span>{document.name}</span><button type="button" onClick={() => removeLuxuryDocument(index)} aria-label={`Remover ${document.name}`}><X /></button></li>)}</ul>}
                 <p><LockKeyhole /> Os documentos serão usados somente para análise de autenticidade e não ficarão visíveis publicamente.</p>
               </section>}
             </div>
@@ -182,14 +203,15 @@ export default function SellPage() {
           {step === 4 && <section className="sell-step">
             <div className="step-heading"><p>Etapa 4 de 4</p><h2>Revise antes de publicar</h2><span>Confira os dados e volte a qualquer etapa se precisar corrigir algo.</span></div>
             <div className="review-card">
-              <div className="review-photo">{photos[0] ? <img src={photos[0]} alt="Capa escolhida para o anúncio" /> : <span><ImagePlus /><small>Sem foto</small></span>}</div>
+              <div className="review-photo">{photos[0] ? <img src={photos[0].url} alt="Capa escolhida para o anúncio" /> : <span><ImagePlus /><small>Sem foto</small></span>}</div>
               <div className="review-copy"><span className="review-mode">{mode === "fixed" ? <><Tag /> Preço fixo</> : <><Gavel /> Leilão</>}</span><h3>{title}</h3><p>{category === "Outro" ? otherCategory || "Outro" : category} · {brand} · Tamanho {size} · {condition}</p><strong>{mode === "fixed" ? `R$ ${price}` : `Lance inicial: R$ ${startingBid}`}</strong>{mode === "auction" && <small>Duração: {duration}</small>}</div>
               <button onClick={() => setStep(2)}>Editar <ChevronRight /></button>
             </div>
             {category === "Peças de luxo" && <div className="luxury-review"><FileCheck2 /><span><strong>Documentação anexada</strong><small>{luxuryDocuments.length} {luxuryDocuments.length === 1 ? "arquivo enviado" : "arquivos enviados"} para verificação de autenticidade.</small></span></div>}
             <div className="review-details"><div><PackageCheck /><span><strong>Envio após a venda</strong><small>Você receberá uma etiqueta e as instruções de postagem.</small></span></div><div><ShieldCheck /><span><strong>Pagamento protegido</strong><small>O valor é liberado após a confirmação do recebimento.</small></span></div></div>
             <label className="sell-agreement"><input type="checkbox" checked={sellerPolicyAccepted} onChange={event => setSellerPolicyAccepted(event.target.checked)} /><span>{category === "Peças de luxo" ? "Declaro que as informações e os documentos enviados são autênticos, que a peça está disponível e que aceito a Política de Anúncios e Vendas." : "Declaro que as informações são verdadeiras, que a peça está disponível e que aceito a Política de Anúncios e Vendas."} <a href="/politicas#vendas">Ler política</a></span></label>
-            <nav className="sell-navigation"><button type="button" className="back" onClick={previous}><ArrowLeft /> Voltar</button><button type="button" disabled={!sellerPolicyAccepted} onClick={() => setPublished(true)}>Publicar anúncio <Check /></button></nav>
+            {publishError && <p className="sell-publish-error">{publishError}</p>}
+            <nav className="sell-navigation"><button type="button" className="back" onClick={previous}><ArrowLeft /> Voltar</button><button type="button" disabled={!sellerPolicyAccepted || publishing} onClick={publish}>{publishing ? "Publicando..." : "Publicar anúncio"} <Check /></button></nav>
           </section>}
         </section>
       </div>
