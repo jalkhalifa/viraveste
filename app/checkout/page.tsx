@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Check, CheckCircle2, ChevronRight, CreditCard, Gavel, Leaf, LockKeyhole, MapPin, PackageCheck, QrCode, ShieldCheck, ShoppingBag, Truck } from "lucide-react";
 
 type CheckoutMode = "direct" | "auction";
@@ -13,6 +14,7 @@ const checkoutItems = {
 };
 
 export default function CheckoutPage() {
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<CheckoutMode>("direct");
   const [shipping, setShipping] = useState<"standard" | "express">("standard");
   const [payment, setPayment] = useState<PaymentMethod>("credit");
@@ -22,8 +24,11 @@ export default function CheckoutPage() {
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [choosingAddress, setChoosingAddress] = useState(false);
   const [addressState, setAddressState] = useState<"loading" | "ready" | "signed-out" | "error">("loading");
+  const [realItem, setRealItem] = useState<{title:string;seller:string;meta:string;price:number;protection:number;image:string}|null>(null);
+  const [negotiated, setNegotiated] = useState(false);
   useEffect(() => { fetch("/api/addresses").then(async response => { const result = await response.json(); if (response.status === 401) { setAddressState("signed-out"); return; } if (!response.ok) throw new Error(result.error); const list = result.addresses as Address[]; setAddresses(list); setSelectedAddressId(list.find(address => address.is_default)?.id || list[0]?.id || ""); setAddressState("ready"); }).catch(() => setAddressState("error")); }, []);
-  const item = checkoutItems[mode];
+  useEffect(()=>{const listingId=searchParams.get("produto"),offerId=searchParams.get("oferta");if(!listingId)return;Promise.all([fetch(`/api/listings?id=${encodeURIComponent(listingId)}`).then(r=>r.json()),offerId?fetch(`/api/offers?id=${encodeURIComponent(offerId)}`).then(r=>r.json()):Promise.resolve({offer:null})]).then(([listingResult,offerResult])=>{const listing=listingResult.listing,offer=offerResult.offer;if(!listing)return;const validOffer=offer&&offer.listing_id===listing.id&&(offer.status==="accepted"||(offer.status==="pending"&&offer.created_by===offer.seller_id));const price=validOffer?Number(offer.amount):Number(listing.price||listing.starting_bid||0);setNegotiated(Boolean(validOffer));setMode(listing.sale_mode==="auction"?"auction":"direct");setRealItem({title:listing.title,seller:listing.seller?.display_name||"Vendedor ViraVeste",meta:[listing.brand,listing.size||listing.dimensions,listing.item_condition].filter(Boolean).join(" · "),price,protection:Number((price*.06+0.6).toFixed(2)),image:listing.image_urls?.[0]||"/images/editorial-verere.png"})}).catch(()=>{})},[searchParams]);
+  const item = realItem||checkoutItems[mode];
   const shippingPrice = shipping === "standard" ? 18.9 : 32.5;
   const total = useMemo(() => item.price + item.protection + shippingPrice, [item, shippingPrice]);
   const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -52,8 +57,8 @@ export default function CheckoutPage() {
       </section>
 
       <aside className="checkout-summary">
-        <p className="eyebrow">Resumo</p><h2>{mode === "auction" ? "Seu arremate" : "Sua compra"}</h2>
-        <div className="checkout-item"><img src={item.image} alt={item.title} /><div><span>{mode === "auction" ? "Lance vencedor" : "Compra direta"}</span><strong>{item.title}</strong><p>{item.meta}</p><small>Vendido por {item.seller}</small></div></div>
+        <p className="eyebrow">Resumo</p><h2>{negotiated?"Sua proposta":mode === "auction" ? "Seu arremate" : "Sua compra"}</h2>
+        <div className="checkout-item"><img src={item.image} alt={item.title} /><div><span>{negotiated?"Valor negociado":mode === "auction" ? "Lance vencedor" : "Compra direta"}</span><strong>{item.title}</strong><p>{item.meta}</p><small>Vendido por {item.seller}</small></div></div>
         <dl><div><dt>{mode === "auction" ? "Valor do arremate" : "Preço da peça"}</dt><dd>{money(item.price)}</dd></div><div><dt>Envio</dt><dd>{money(shippingPrice)}</dd></div><div><dt>Proteção ViraVeste <button aria-label="Sobre a proteção">?</button></dt><dd>{money(item.protection)}</dd></div></dl>
         <div className="checkout-total"><span>Total</span><strong>{money(total)}</strong><small>{payment === "credit" ? `ou em até 3x de ${money(total / 3)} sem juros` : "Pagamento integral com confirmação imediata"}</small></div>
         <div className="checkout-protection"><ShieldCheck /><p><strong>Pagamento protegido</strong><span>O valor só será liberado à vendedora depois que você receber o pedido.</span></p></div>
