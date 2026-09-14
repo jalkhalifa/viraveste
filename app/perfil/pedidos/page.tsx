@@ -1,13 +1,550 @@
 "use client";
-import { FormEvent,useEffect,useState } from "react";
-import { AlertTriangle,ArrowLeft,CheckCircle2,CreditCard,FileCheck2,Gavel,Leaf,Package,PackageCheck,Settings,ShoppingBag,Truck,UserRound } from "lucide-react";
-import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from "@/components/ui/dialog";
-type View="compras"|"vendas";
-type Order={id:string;role:"buyer"|"seller";item_price:number;protection_fee:number;shipping_price:number;total_amount:number;payment_status:string;order_status:string;shipping_method:string;tracking_code:string|null;created_at:string;listing:{id:string;title:string;image_urls:string[];brand:string|null;size:string|null;dimensions:string|null;item_condition:string}|null;other:{display_name:string}|null};
-const money=(value:number)=>Number(value).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});const statuses:Record<string,string>={awaiting_payment:"Aguardando pagamento",payment_confirmed:"Pagamento confirmado",preparing_shipment:"Preparando envio",shipped:"Enviado",delivered:"Entrega confirmada",completed:"Concluído",cancellation_requested:"Cancelamento solicitado",cancelled:"Cancelado",disputed:"Em análise"};
-export default function OrdersPage(){const [view,setView]=useState<View>("compras"),[orders,setOrders]=useState<Order[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(""),[working,setWorking]=useState(""),[shipOrder,setShipOrder]=useState<Order|null>(null),[tracking,setTracking]=useState(""),[issueOrder,setIssueOrder]=useState<Order|null>(null),[reason,setReason]=useState("damaged_item"),[description,setDescription]=useState("");
- function load(){fetch("/api/orders").then(async response=>{const result=await response.json();if(response.status===401){window.location.href="/api/auth?returnTo=/perfil/pedidos";return}if(!response.ok)throw new Error(result.error);setOrders(result.orders)}).catch(reason=>setError(reason.message||"Não foi possível carregar os pedidos.")).finally(()=>setLoading(false))}
- useEffect(load,[]);async function action(order:Order,name:string,trackingCode?:string){setWorking(order.id);setError("");const response=await fetch("/api/orders",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({id:order.id,action:name,trackingCode})});const result=await response.json();if(response.ok){setShipOrder(null);load()}else setError(result.error||"Não foi possível atualizar o pedido.");setWorking("")}
- async function report(event:FormEvent){event.preventDefault();if(!issueOrder)return;setWorking(issueOrder.id);const response=await fetch("/api/order-issues",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({orderId:issueOrder.id,reason,description})});const result=await response.json();if(response.ok){setIssueOrder(null);setDescription("");load()}else setError(result.error||"Não foi possível registrar o problema.");setWorking("")}
- const shown=orders.filter(order=>order.role===(view==="compras"?"buyer":"seller")),purchases=orders.filter(order=>order.role==="buyer").length,sales=orders.filter(order=>order.role==="seller").length;
- return <main className="wallet-page orders-page"><header className="wallet-header"><a className="brand" href="/"><span className="brand-cycle"><Leaf/></span><span>ViraVeste<small>Seu armário em movimento.</small></span></a><a href="/perfil"><ArrowLeft/> Voltar ao perfil</a><div><span>VV</span><strong>Minha conta</strong></div></header><div className="wallet-shell"><aside className="profile-menu"><div className="profile-menu-user"><span>VV</span><div><strong>Minha conta</strong><small>ViraVeste</small></div></div><nav><a href="/perfil"><UserRound/> Visão geral</a><a href="/perfil/anuncios"><ShoppingBag/> Meus anúncios</a><a className="active" href="/perfil/pedidos"><Package/> Compras e vendas</a><a href="/perfil#leiloes"><Gavel/> Meus leilões</a><a href="/perfil/carteira"><CreditCard/> Cartões</a><a href="/perfil#verificacoes"><FileCheck2/> Verificações</a><a href="/perfil#configuracoes"><Settings/> Configurações</a></nav></aside><section className="orders-content"><div className="orders-heading"><div><p className="eyebrow">Meus pedidos</p><h1>Compras e vendas</h1><p>Acompanhe cada etapa do pedido.</p></div><span><CheckCircle2/> Ambiente demonstrativo</span></div><div className="orders-tabs" role="tablist"><button className={view==="compras"?"active":""} onClick={()=>setView("compras")}><ShoppingBag/> Minhas compras <b>{purchases}</b></button><button className={view==="vendas"?"active":""} onClick={()=>setView("vendas")}><PackageCheck/> Minhas vendas <b>{sales}</b></button></div>{error&&<p className="orders-action-error">{error}</p>}{loading?<div className="orders-real-state"><span className="spinner"/><p>Carregando pedidos...</p></div>:shown.length===0?<div className="orders-real-state"><ShoppingBag/><h2>{view==="compras"?"Nenhuma compra ainda":"Nenhuma venda ainda"}</h2><p>{view==="compras"?"Seus pedidos aparecerão aqui.":"As vendas dos seus anúncios aparecerão aqui."}</p></div>:<div className="orders-real-list">{shown.map(order=>{const item=order.listing,isBuyer=order.role==="buyer";return <article className="order-real-card" key={order.id}><div className="order-real-top"><span className={`status-pill ${["cancelled","cancellation_requested","disputed"].includes(order.order_status)?"waiting":"transit"}`}>{statuses[order.order_status]||order.order_status}</span><small>Pedido #{order.id.slice(0,8).toUpperCase()} · {new Date(order.created_at).toLocaleDateString("pt-BR")}</small></div><div className="order-detail-product"><img src={item?.image_urls?.[0]||"/images/editorial-verere.png"} alt={item?.title||"Item ViraVeste"}/><div><h2>{item?.title||"Anúncio"}</h2><p>{[item?.brand,item?.size||item?.dimensions,item?.item_condition].filter(Boolean).join(" · ")}</p><span>{isBuyer?"Vendido":"Comprado"} por {order.other?.display_name||"Usuário ViraVeste"}</span></div><strong>{money(order.total_amount)}<small>total com envio e proteção</small></strong></div><div className="order-real-details"><span><PackageCheck/><b>{order.payment_status==="paid"?"Pagamento aprovado":"Pagamento pendente"}</b></span><span><Truck/><b>{order.tracking_code?`Rastreio: ${order.tracking_code}`:order.shipping_method==="express"?"Envio expresso":"Envio econômico"}</b></span></div><div className="order-live-actions">{!isBuyer&&order.order_status==="payment_confirmed"&&<button disabled={working===order.id} onClick={()=>action(order,"prepare")}><PackageCheck/> Preparar envio</button>}{!isBuyer&&["payment_confirmed","preparing_shipment"].includes(order.order_status)&&<button disabled={working===order.id} onClick={()=>{setShipOrder(order);setTracking("")}}><Truck/> Informar postagem</button>}{isBuyer&&order.order_status==="shipped"&&<button disabled={working===order.id} onClick={()=>action(order,"delivered")}><CheckCircle2/> Confirmar recebimento</button>}{isBuyer&&["awaiting_payment","payment_confirmed","preparing_shipment"].includes(order.order_status)&&<button className="secondary" disabled={working===order.id} onClick={()=>action(order,"cancel")}><AlertTriangle/> Solicitar cancelamento</button>}{isBuyer&&["payment_confirmed","preparing_shipment","shipped","delivered"].includes(order.order_status)&&<button className="secondary" onClick={()=>{setIssueOrder(order);setReason("damaged_item");setDescription("")}}><AlertTriangle/> Tenho um problema</button>}</div></article>})}</div>}</section></div><Dialog open={!!shipOrder} onOpenChange={open=>!open&&setShipOrder(null)}><DialogContent className="offer-dialog"><DialogHeader><DialogTitle>Informar postagem</DialogTitle><DialogDescription>Digite o código fornecido pela transportadora ou pelos Correios.</DialogDescription></DialogHeader><form onSubmit={event=>{event.preventDefault();if(shipOrder)action(shipOrder,"ship",tracking)}}><label>Código de rastreamento<span><input required minLength={5} value={tracking} onChange={event=>setTracking(event.target.value.toUpperCase())} placeholder="Ex.: AA123456789BR"/></span></label><button disabled={!tracking||!!working}>Confirmar postagem</button></form></DialogContent></Dialog><Dialog open={!!issueOrder} onOpenChange={open=>!open&&setIssueOrder(null)}><DialogContent className="offer-dialog issue-dialog"><DialogHeader><DialogTitle>Informar um problema</DialogTitle><DialogDescription>O pedido ficará em análise. Não envie dados bancários ou senhas.</DialogDescription></DialogHeader><form onSubmit={report}><label>Motivo<select value={reason} onChange={event=>setReason(event.target.value)}><option value="delivery_delay">Atraso na entrega</option><option value="damaged_item">Item danificado</option><option value="different_item">Item diferente do anúncio</option><option value="counterfeit_suspicion">Suspeita de falsificação</option><option value="missing_item">Item não recebido</option><option value="other">Outro problema</option></select></label><label>Explique o que aconteceu<textarea required minLength={10} maxLength={2000} rows={5} value={description} onChange={event=>setDescription(event.target.value)} placeholder="Descreva o problema com detalhes."/></label><button disabled={description.trim().length<10||!!working}>Enviar para análise</button></form></DialogContent></Dialog></main>}
+import { FormEvent, useEffect, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  CreditCard,
+  FileCheck2,
+  Gavel,
+  Leaf,
+  Package,
+  PackageCheck,
+  Settings,
+  ShoppingBag,
+  Star,
+  Truck,
+  UserRound,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+type View = "compras" | "vendas";
+type Order = {
+  id: string;
+  role: "buyer" | "seller";
+  item_price: number;
+  protection_fee: number;
+  shipping_price: number;
+  total_amount: number;
+  payment_status: string;
+  order_status: string;
+  shipping_method: string;
+  tracking_code: string | null;
+  created_at: string;
+  listing: {
+    id: string;
+    title: string;
+    image_urls: string[];
+    brand: string | null;
+    size: string | null;
+    dimensions: string | null;
+    item_condition: string;
+  } | null;
+  other: { display_name: string } | null;
+};
+type Review = { order_id: string };
+const money = (value: number) =>
+  Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const statuses: Record<string, string> = {
+  awaiting_payment: "Aguardando pagamento",
+  payment_confirmed: "Pagamento confirmado",
+  preparing_shipment: "Preparando envio",
+  shipped: "Enviado",
+  delivered: "Entrega confirmada",
+  completed: "Concluído",
+  cancellation_requested: "Cancelamento solicitado",
+  cancelled: "Cancelado",
+  disputed: "Em análise",
+};
+export default function OrdersPage() {
+  const [view, setView] = useState<View>("compras"),
+    [orders, setOrders] = useState<Order[]>([]),
+    [reviewed, setReviewed] = useState<Set<string>>(new Set()),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState(""),
+    [working, setWorking] = useState(""),
+    [shipOrder, setShipOrder] = useState<Order | null>(null),
+    [tracking, setTracking] = useState(""),
+    [issueOrder, setIssueOrder] = useState<Order | null>(null),
+    [reason, setReason] = useState("damaged_item"),
+    [description, setDescription] = useState(""),
+    [reviewOrder, setReviewOrder] = useState<Order | null>(null),
+    [rating, setRating] = useState(5),
+    [comment, setComment] = useState(""),
+    [reviewSuccess, setReviewSuccess] = useState("");
+  function load() {
+    Promise.all([fetch("/api/orders"), fetch("/api/reviews?mine=1")])
+      .then(async ([ordersResponse, reviewsResponse]) => {
+        const ordersResult = await ordersResponse.json();
+        if (ordersResponse.status === 401) {
+          window.location.href = "/api/auth?returnTo=/perfil/pedidos";
+          return;
+        }
+        if (!ordersResponse.ok) throw new Error(ordersResult.error);
+        setOrders(ordersResult.orders);
+        if (reviewsResponse.ok) {
+          const reviewsResult = await reviewsResponse.json();
+          setReviewed(
+            new Set(
+              (reviewsResult.reviews as Review[]).map(
+                (review) => review.order_id,
+              ),
+            ),
+          );
+        }
+      })
+      .catch((reason) =>
+        setError(reason.message || "Não foi possível carregar os pedidos."),
+      )
+      .finally(() => setLoading(false));
+  }
+  useEffect(load, []);
+  async function action(order: Order, name: string, trackingCode?: string) {
+    setWorking(order.id);
+    setError("");
+    const response = await fetch("/api/orders", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: order.id, action: name, trackingCode }),
+    });
+    const result = await response.json();
+    if (response.ok) {
+      setShipOrder(null);
+      load();
+    } else setError(result.error || "Não foi possível atualizar o pedido.");
+    setWorking("");
+  }
+  async function report(event: FormEvent) {
+    event.preventDefault();
+    if (!issueOrder) return;
+    setWorking(issueOrder.id);
+    const response = await fetch("/api/order-issues", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ orderId: issueOrder.id, reason, description }),
+    });
+    const result = await response.json();
+    if (response.ok) {
+      setIssueOrder(null);
+      setDescription("");
+      load();
+    } else setError(result.error || "Não foi possível registrar o problema.");
+    setWorking("");
+  }
+  async function submitReview(event: FormEvent) {
+    event.preventDefault();
+    if (!reviewOrder) return;
+    setWorking(reviewOrder.id);
+    setError("");
+    const response = await fetch("/api/reviews", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ orderId: reviewOrder.id, rating, comment }),
+    });
+    const result = await response.json();
+    if (response.ok) {
+      setReviewed((current) => new Set(current).add(reviewOrder.id));
+      setReviewSuccess(reviewOrder.id);
+      setReviewOrder(null);
+      setComment("");
+    } else setError(result.error || "Não foi possível enviar a avaliação.");
+    setWorking("");
+  }
+  const shown = orders.filter(
+      (order) => order.role === (view === "compras" ? "buyer" : "seller"),
+    ),
+    purchases = orders.filter((order) => order.role === "buyer").length,
+    sales = orders.filter((order) => order.role === "seller").length;
+  return (
+    <main className="wallet-page orders-page">
+      <header className="wallet-header">
+        <a className="brand" href="/">
+          <span className="brand-cycle">
+            <Leaf />
+          </span>
+          <span>
+            ViraVeste<small>Seu armário em movimento.</small>
+          </span>
+        </a>
+        <a href="/perfil">
+          <ArrowLeft /> Voltar ao perfil
+        </a>
+        <div>
+          <span>VV</span>
+          <strong>Minha conta</strong>
+        </div>
+      </header>
+      <div className="wallet-shell">
+        <aside className="profile-menu">
+          <div className="profile-menu-user">
+            <span>VV</span>
+            <div>
+              <strong>Minha conta</strong>
+              <small>ViraVeste</small>
+            </div>
+          </div>
+          <nav>
+            <a href="/perfil">
+              <UserRound /> Visão geral
+            </a>
+            <a href="/perfil/anuncios">
+              <ShoppingBag /> Meus anúncios
+            </a>
+            <a className="active" href="/perfil/pedidos">
+              <Package /> Compras e vendas
+            </a>
+            <a href="/perfil#leiloes">
+              <Gavel /> Meus leilões
+            </a>
+            <a href="/perfil/carteira">
+              <CreditCard /> Cartões
+            </a>
+            <a href="/perfil#verificacoes">
+              <FileCheck2 /> Verificações
+            </a>
+            <a href="/perfil#configuracoes">
+              <Settings /> Configurações
+            </a>
+          </nav>
+        </aside>
+        <section className="orders-content">
+          <div className="orders-heading">
+            <div>
+              <p className="eyebrow">Meus pedidos</p>
+              <h1>Compras e vendas</h1>
+              <p>Acompanhe cada etapa do pedido.</p>
+            </div>
+            <span>
+              <CheckCircle2 /> Ambiente demonstrativo
+            </span>
+          </div>
+          <div className="orders-tabs" role="tablist">
+            <button
+              className={view === "compras" ? "active" : ""}
+              onClick={() => setView("compras")}
+            >
+              <ShoppingBag /> Minhas compras <b>{purchases}</b>
+            </button>
+            <button
+              className={view === "vendas" ? "active" : ""}
+              onClick={() => setView("vendas")}
+            >
+              <PackageCheck /> Minhas vendas <b>{sales}</b>
+            </button>
+          </div>
+          {error && <p className="orders-action-error">{error}</p>}
+          {loading ? (
+            <div className="orders-real-state">
+              <span className="spinner" />
+              <p>Carregando pedidos...</p>
+            </div>
+          ) : shown.length === 0 ? (
+            <div className="orders-real-state">
+              <ShoppingBag />
+              <h2>
+                {view === "compras"
+                  ? "Nenhuma compra ainda"
+                  : "Nenhuma venda ainda"}
+              </h2>
+              <p>
+                {view === "compras"
+                  ? "Seus pedidos aparecerão aqui."
+                  : "As vendas dos seus anúncios aparecerão aqui."}
+              </p>
+            </div>
+          ) : (
+            <div className="orders-real-list">
+              {shown.map((order) => {
+                const item = order.listing,
+                  isBuyer = order.role === "buyer";
+                return (
+                  <article className="order-real-card" key={order.id}>
+                    <div className="order-real-top">
+                      <span
+                        className={`status-pill ${["cancelled", "cancellation_requested", "disputed"].includes(order.order_status) ? "waiting" : "transit"}`}
+                      >
+                        {statuses[order.order_status] || order.order_status}
+                      </span>
+                      <small>
+                        Pedido #{order.id.slice(0, 8).toUpperCase()} ·{" "}
+                        {new Date(order.created_at).toLocaleDateString("pt-BR")}
+                      </small>
+                    </div>
+                    <div className="order-detail-product">
+                      <img
+                        src={
+                          item?.image_urls?.[0] ||
+                          "/images/editorial-verere.png"
+                        }
+                        alt={item?.title || "Item ViraVeste"}
+                      />
+                      <div>
+                        <h2>{item?.title || "Anúncio"}</h2>
+                        <p>
+                          {[
+                            item?.brand,
+                            item?.size || item?.dimensions,
+                            item?.item_condition,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                        <span>
+                          {isBuyer ? "Vendido" : "Comprado"} por{" "}
+                          {order.other?.display_name || "Usuário ViraVeste"}
+                        </span>
+                      </div>
+                      <strong>
+                        {money(order.total_amount)}
+                        <small>total com envio e proteção</small>
+                      </strong>
+                    </div>
+                    <div className="order-real-details">
+                      <span>
+                        <PackageCheck />
+                        <b>
+                          {order.payment_status === "paid"
+                            ? "Pagamento aprovado"
+                            : "Pagamento pendente"}
+                        </b>
+                      </span>
+                      <span>
+                        <Truck />
+                        <b>
+                          {order.tracking_code
+                            ? `Rastreio: ${order.tracking_code}`
+                            : order.shipping_method === "express"
+                              ? "Envio expresso"
+                              : "Envio econômico"}
+                        </b>
+                      </span>
+                    </div>
+                    <div className="order-live-actions">
+                      {!isBuyer &&
+                        order.order_status === "payment_confirmed" && (
+                          <button
+                            disabled={working === order.id}
+                            onClick={() => action(order, "prepare")}
+                          >
+                            <PackageCheck /> Preparar envio
+                          </button>
+                        )}
+                      {!isBuyer &&
+                        ["payment_confirmed", "preparing_shipment"].includes(
+                          order.order_status,
+                        ) && (
+                          <button
+                            disabled={working === order.id}
+                            onClick={() => {
+                              setShipOrder(order);
+                              setTracking("");
+                            }}
+                          >
+                            <Truck /> Informar postagem
+                          </button>
+                        )}
+                      {isBuyer && order.order_status === "shipped" && (
+                        <button
+                          disabled={working === order.id}
+                          onClick={() => action(order, "delivered")}
+                        >
+                          <CheckCircle2 /> Confirmar recebimento
+                        </button>
+                      )}
+                      {isBuyer &&
+                        [
+                          "awaiting_payment",
+                          "payment_confirmed",
+                          "preparing_shipment",
+                        ].includes(order.order_status) && (
+                          <button
+                            className="secondary"
+                            disabled={working === order.id}
+                            onClick={() => action(order, "cancel")}
+                          >
+                            <AlertTriangle /> Solicitar cancelamento
+                          </button>
+                        )}
+                      {isBuyer &&
+                        [
+                          "payment_confirmed",
+                          "preparing_shipment",
+                          "shipped",
+                          "delivered",
+                        ].includes(order.order_status) && (
+                          <button
+                            className="secondary"
+                            onClick={() => {
+                              setIssueOrder(order);
+                              setReason("damaged_item");
+                              setDescription("");
+                            }}
+                          >
+                            <AlertTriangle /> Tenho um problema
+                          </button>
+                        )}
+                      {order.order_status === "completed" &&
+                        (reviewed.has(order.id) ||
+                        reviewSuccess === order.id ? (
+                          <span className="review-sent">
+                            <CheckCircle2 /> Avaliação enviada
+                          </span>
+                        ) : (
+                          <button
+                            className="review-action"
+                            onClick={() => {
+                              setReviewOrder(order);
+                              setRating(5);
+                              setComment("");
+                            }}
+                          >
+                            <Star /> Avaliar{" "}
+                            {isBuyer ? "vendedor" : "comprador"}
+                          </button>
+                        ))}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
+      <Dialog
+        open={!!shipOrder}
+        onOpenChange={(open) => !open && setShipOrder(null)}
+      >
+        <DialogContent className="offer-dialog">
+          <DialogHeader>
+            <DialogTitle>Informar postagem</DialogTitle>
+            <DialogDescription>
+              Digite o código fornecido pela transportadora ou pelos Correios.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (shipOrder) action(shipOrder, "ship", tracking);
+            }}
+          >
+            <label>
+              Código de rastreamento
+              <span>
+                <input
+                  required
+                  minLength={5}
+                  value={tracking}
+                  onChange={(event) =>
+                    setTracking(event.target.value.toUpperCase())
+                  }
+                  placeholder="Ex.: AA123456789BR"
+                />
+              </span>
+            </label>
+            <button disabled={!tracking || !!working}>
+              Confirmar postagem
+            </button>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={!!reviewOrder}
+        onOpenChange={(open) => !open && setReviewOrder(null)}
+      >
+        <DialogContent className="offer-dialog review-dialog">
+          <DialogHeader>
+            <DialogTitle>
+              Avaliar {reviewOrder?.role === "buyer" ? "vendedor" : "comprador"}
+            </DialogTitle>
+            <DialogDescription>
+              Sua avaliação ajuda a tornar a comunidade ViraVeste mais segura.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitReview}>
+            <label>Sua nota</label>
+            <div
+              className="review-stars"
+              aria-label={`${rating} de 5 estrelas`}
+            >
+              {[1, 2, 3, 4, 5].map((value) => (
+                <button
+                  type="button"
+                  className={value <= rating ? "active" : ""}
+                  onClick={() => setRating(value)}
+                  aria-label={`${value} ${value === 1 ? "estrela" : "estrelas"}`}
+                  key={value}
+                >
+                  <Star />
+                </button>
+              ))}
+            </div>
+            <label>
+              Comentário <small>(opcional)</small>
+              <textarea
+                maxLength={1000}
+                rows={4}
+                value={comment}
+                onChange={(event) => setComment(event.target.value)}
+                placeholder="Conte como foi sua experiência."
+              />
+            </label>
+            <button disabled={!!working}>Enviar avaliação</button>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={!!issueOrder}
+        onOpenChange={(open) => !open && setIssueOrder(null)}
+      >
+        <DialogContent className="offer-dialog issue-dialog">
+          <DialogHeader>
+            <DialogTitle>Informar um problema</DialogTitle>
+            <DialogDescription>
+              O pedido ficará em análise. Não envie dados bancários ou senhas.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={report}>
+            <label>
+              Motivo
+              <select
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              >
+                <option value="delivery_delay">Atraso na entrega</option>
+                <option value="damaged_item">Item danificado</option>
+                <option value="different_item">
+                  Item diferente do anúncio
+                </option>
+                <option value="counterfeit_suspicion">
+                  Suspeita de falsificação
+                </option>
+                <option value="missing_item">Item não recebido</option>
+                <option value="other">Outro problema</option>
+              </select>
+            </label>
+            <label>
+              Explique o que aconteceu
+              <textarea
+                required
+                minLength={10}
+                maxLength={2000}
+                rows={5}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Descreva o problema com detalhes."
+              />
+            </label>
+            <button disabled={description.trim().length < 10 || !!working}>
+              Enviar para análise
+            </button>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </main>
+  );
+}

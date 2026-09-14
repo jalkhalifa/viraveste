@@ -1,21 +1,519 @@
 "use client";
 
-import { ArrowLeft, Check, CheckCircle2, Heart, Leaf, MapPin, MessageCircle, PackageCheck, Search, ShieldCheck, Star, Tag, Gavel, UserPlus } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  Heart,
+  Leaf,
+  MapPin,
+  MessageCircle,
+  PackageCheck,
+  Search,
+  ShieldCheck,
+  Star,
+  Tag,
+  Gavel,
+  UserPlus,
+} from "lucide-react";
 import { useParams } from "next/navigation";
-import { useEffect,useState } from "react";
+import { useEffect, useState } from "react";
 
-type Seller={id:string;display_name:string;city:string|null;state:string|null;avatar_url:string|null;member_since:string;bio:string|null};
-type Listing={id:string;title:string;brand:string|null;size:string|null;dimensions:string|null;item_condition:string;sale_mode:"fixed"|"auction";price:number|null;starting_bid:number|null;image_urls:string[]};
-const money=(value:number|null)=>Number(value||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-function initials(name:string){return name.split(" ").filter(Boolean).slice(0,2).map(part=>part[0]).join("").toUpperCase()||"VV"}
+type Seller = {
+  id: string;
+  display_name: string;
+  city: string | null;
+  state: string | null;
+  avatar_url: string | null;
+  member_since: string;
+  bio: string | null;
+};
+type Listing = {
+  id: string;
+  title: string;
+  brand: string | null;
+  size: string | null;
+  dimensions: string | null;
+  item_condition: string;
+  sale_mode: "fixed" | "auction";
+  price: number | null;
+  starting_bid: number | null;
+  image_urls: string[];
+};
+type Review = {
+  id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  reviewer: { display_name: string; avatar_url: string | null } | null;
+};
+const money = (value: number | null) =>
+  Number(value || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+function initials(name: string) {
+  return (
+    name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "VV"
+  );
+}
 
-export default function PublicClosetPage(){
- const {id}=useParams<{id:string}>();const [seller,setSeller]=useState<Seller|null>(null),[listings,setListings]=useState<Listing[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(""),[favorites,setFavorites]=useState<Set<string>>(new Set()),[working,setWorking]=useState(""),[following,setFollowing]=useState(false),[followers,setFollowers]=useState(0),[isOwn,setIsOwn]=useState(false),[followWorking,setFollowWorking]=useState(false),[chatWorking,setChatWorking]=useState(false);
- useEffect(()=>{if(!id)return;Promise.all([fetch(`/api/sellers?id=${encodeURIComponent(id)}`),fetch(`/api/listings?seller=${encodeURIComponent(id)}`),fetch(`/api/follows?seller=${encodeURIComponent(id)}`)]).then(async([sellerResponse,listingsResponse,followResponse])=>{const sellerResult=await sellerResponse.json(),listingsResult=await listingsResponse.json(),followResult=await followResponse.json();if(!sellerResponse.ok)throw new Error(sellerResult.error);if(!listingsResponse.ok)throw new Error(listingsResult.error);setSeller(sellerResult.seller);setListings(listingsResult.listings);if(followResponse.ok){setFollowing(followResult.following);setFollowers(followResult.followers);setIsOwn(followResult.isOwn)}}).catch(reason=>setError(reason.message||"Não foi possível carregar este armário.")).finally(()=>setLoading(false));fetch("/api/favorites").then(response=>response.ok?response.json():Promise.reject()).then(result=>setFavorites(new Set(result.favorites.map((item:{id:string})=>item.id)))).catch(()=>{})},[id]);
- async function toggleFavorite(listingId:string){setWorking(listingId);const active=favorites.has(listingId);const response=await fetch(active?`/api/favorites?id=${encodeURIComponent(listingId)}`:"/api/favorites",active?{method:"DELETE"}:{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({listingId})});if(response.status===401){window.location.href=`/api/auth?returnTo=/armario/${id}`;return}if(response.ok)setFavorites(current=>{const next=new Set(current);active?next.delete(listingId):next.add(listingId);return next});setWorking("")}
- async function toggleFollow(){setFollowWorking(true);const response=await fetch(following?`/api/follows?seller=${encodeURIComponent(id)}`:"/api/follows",following?{method:"DELETE"}:{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({sellerId:id})});if(response.status===401){window.location.href=`/api/auth?returnTo=/armario/${id}`;return}if(response.ok){setFollowing(current=>!current);setFollowers(current=>Math.max(0,current+(following?-1:1)))}setFollowWorking(false)}
- async function startConversation(){setChatWorking(true);const response=await fetch("/api/messages",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({sellerId:id})});const result=await response.json();if(response.status===401){window.location.href=`/api/auth?returnTo=/armario/${id}`;return}if(response.ok)window.location.href=`/perfil/mensagens/${result.conversationId}`;else{window.alert(result.error||"Não foi possível iniciar a conversa.");setChatWorking(false)}}
- if(loading)return <main className="dynamic-product-state"><span className="spinner"/><p>Carregando armário...</p></main>;if(error||!seller)return <main className="dynamic-product-state"><PackageCheck/><h1>Armário indisponível</h1><p>{error||"Este perfil não está disponível."}</p><a href="/buscar">Voltar ao catálogo</a></main>;
- const place=[seller.city,seller.state].filter(Boolean).join(", ")||"Brasil";const year=new Date(seller.member_since).getFullYear();
- return <main><header className="topbar"><div className="topbar-inner"><a className="brand" href="/"><span className="brand-cycle"><Leaf/></span><span>ViraVeste<small>Seu armário em movimento.</small></span></a><form className="top-search" action="/buscar"><Search/><input name="q" aria-label="Buscar" placeholder="Buscar peças, marcas ou armários"/><button>Buscar</button></form><a className="login desktop-only" href="/entrar">Entrar</a><a className="sell desktop-only" href="/vender">Vender</a></div></header><div className="closet-page"><a className="public-closet-back" href="/buscar"><ArrowLeft/> Voltar ao catálogo</a><section className="closet-profile"><div className="closet-cover"><img src="/images/editorial-verere.png" alt="Seleção de moda circular ViraVeste"/></div><div className="closet-identity">{seller.avatar_url?<img className="closet-avatar public-avatar-image" src={seller.avatar_url} alt="Foto do vendedor"/>:<span className="closet-avatar">{initials(seller.display_name)}</span>}<div className="closet-name"><div><h1>{seller.display_name}</h1><CheckCircle2/></div><p><MapPin/> {place} · Na ViraVeste desde {year}</p></div><div className="closet-profile-actions">{isOwn?<a className="follow" href="/perfil#configuracoes">Editar meu perfil</a>:<><button className={`follow ${following?"following":""}`} disabled={followWorking} onClick={toggleFollow}>{following?<Check/>:<UserPlus/>}{following?"Seguindo":"Seguir"}</button><button className="message" disabled={chatWorking} onClick={startConversation}><MessageCircle/> {chatWorking?"Abrindo...":"Conversar"}</button></>}</div></div><div className="closet-bio"><p>{seller.bio||"Peças usadas em bom estado, prontas para ganhar novas histórias."}</p><dl><div><dt>{listings.length}</dt><dd>Peças disponíveis</dd></div><div><dt>{followers}</dt><dd>Seguidores</dd></div><div><dt>Novo</dt><dd><Star/> Avaliação</dd></div></dl></div></section><nav className="closet-tabs"><a className="active" href="#pecas">Peças <span>{listings.length}</span></a><a href="#sobre">Sobre</a></nav><div className="closet-content"><section className="closet-listings" id="pecas"><div className="closet-section-heading"><div><p className="eyebrow">Disponíveis agora</p><h2>Peças do armário</h2></div></div>{listings.length?<div className="closet-product-grid">{listings.map(item=><article className="closet-product" key={item.id}><div className="closet-product-image"><a href={`/produto/${item.id}`}><img src={item.image_urls[0]||"/images/editorial-verere.png"} alt={item.title}/></a><span>{item.item_condition}</span><button disabled={working===item.id} className={favorites.has(item.id)?"active":""} onClick={()=>toggleFavorite(item.id)} aria-label={favorites.has(item.id)?`Remover ${item.title} dos favoritos`:`Favoritar ${item.title}`}><Heart/></button></div><div><p>{item.brand||"Sem marca"}{item.size?` · Tam. ${item.size}`:item.dimensions?` · ${item.dimensions}`:""}</p><h3>{item.title}</h3><strong>{item.sale_mode==="auction"?money(item.starting_bid):money(item.price)}</strong><small className="public-closet-mode">{item.sale_mode==="auction"?<><Gavel/> Leilão</>:<><Tag/> Preço fixo</>}</small></div></article>)}</div>:<div className="public-closet-empty"><PackageCheck/><h3>Este armário está se renovando</h3><p>Não há anúncios disponíveis agora.</p></div>}</section><aside className="closet-aside"><section className="closet-trust-card"><h2>Perfil protegido</h2><ul><li><ShieldCheck/><span><strong>Dados pessoais preservados</strong><small>Contato, endereço e documentos nunca são exibidos publicamente.</small></span></li><li><PackageCheck/><span><strong>Anúncios da plataforma</strong><small>Somente itens publicados aparecem neste armário.</small></span></li><li><MessageCircle/><span><strong>Comunicação segura</strong><small>As conversas são feitas dentro do ViraVeste.</small></span></li></ul></section><section className="public-seller-about" id="sobre"><p className="eyebrow">Sobre</p><h2>Sobre {seller.display_name}</h2><p>{seller.bio||"Este vendedor ainda não escreveu uma apresentação."}</p><small><MapPin/> {place} · membro desde {year}</small></section></aside></div></div><footer><div><a className="footer-brand" href="/">ViraVeste</a><p>Seu armário em movimento.</p></div><nav><a href="/politicas">Políticas</a><a href="/politicas#privacidade">Privacidade</a></nav><span>© 2026 ViraVeste</span></footer></main>;
+export default function PublicClosetPage() {
+  const { id } = useParams<{ id: string }>();
+  const [seller, setSeller] = useState<Seller | null>(null),
+    [listings, setListings] = useState<Listing[]>([]),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState(""),
+    [favorites, setFavorites] = useState<Set<string>>(new Set()),
+    [working, setWorking] = useState(""),
+    [following, setFollowing] = useState(false),
+    [followers, setFollowers] = useState(0),
+    [isOwn, setIsOwn] = useState(false),
+    [followWorking, setFollowWorking] = useState(false),
+    [chatWorking, setChatWorking] = useState(false),
+    [reviews, setReviews] = useState<Review[]>([]),
+    [reviewAverage, setReviewAverage] = useState(0),
+    [reviewTotal, setReviewTotal] = useState(0);
+  useEffect(() => {
+    if (!id) return;
+    Promise.all([
+      fetch(`/api/sellers?id=${encodeURIComponent(id)}`),
+      fetch(`/api/listings?seller=${encodeURIComponent(id)}`),
+      fetch(`/api/follows?seller=${encodeURIComponent(id)}`),
+      fetch(`/api/reviews?user=${encodeURIComponent(id)}`),
+    ])
+      .then(
+        async ([
+          sellerResponse,
+          listingsResponse,
+          followResponse,
+          reviewsResponse,
+        ]) => {
+          const sellerResult = await sellerResponse.json(),
+            listingsResult = await listingsResponse.json(),
+            followResult = await followResponse.json(),
+            reviewsResult = await reviewsResponse.json();
+          if (!sellerResponse.ok) throw new Error(sellerResult.error);
+          if (!listingsResponse.ok) throw new Error(listingsResult.error);
+          setSeller(sellerResult.seller);
+          setListings(listingsResult.listings);
+          if (followResponse.ok) {
+            setFollowing(followResult.following);
+            setFollowers(followResult.followers);
+            setIsOwn(followResult.isOwn);
+          }
+          if (reviewsResponse.ok) {
+            setReviews(reviewsResult.reviews);
+            setReviewAverage(reviewsResult.average);
+            setReviewTotal(reviewsResult.total);
+          }
+        },
+      )
+      .catch((reason) =>
+        setError(reason.message || "Não foi possível carregar este armário."),
+      )
+      .finally(() => setLoading(false));
+    fetch("/api/favorites")
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((result) =>
+        setFavorites(
+          new Set(result.favorites.map((item: { id: string }) => item.id)),
+        ),
+      )
+      .catch(() => {});
+  }, [id]);
+  async function toggleFavorite(listingId: string) {
+    setWorking(listingId);
+    const active = favorites.has(listingId);
+    const response = await fetch(
+      active
+        ? `/api/favorites?id=${encodeURIComponent(listingId)}`
+        : "/api/favorites",
+      active
+        ? { method: "DELETE" }
+        : {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ listingId }),
+          },
+    );
+    if (response.status === 401) {
+      window.location.href = `/api/auth?returnTo=/armario/${id}`;
+      return;
+    }
+    if (response.ok)
+      setFavorites((current) => {
+        const next = new Set(current);
+        active ? next.delete(listingId) : next.add(listingId);
+        return next;
+      });
+    setWorking("");
+  }
+  async function toggleFollow() {
+    setFollowWorking(true);
+    const response = await fetch(
+      following
+        ? `/api/follows?seller=${encodeURIComponent(id)}`
+        : "/api/follows",
+      following
+        ? { method: "DELETE" }
+        : {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ sellerId: id }),
+          },
+    );
+    if (response.status === 401) {
+      window.location.href = `/api/auth?returnTo=/armario/${id}`;
+      return;
+    }
+    if (response.ok) {
+      setFollowing((current) => !current);
+      setFollowers((current) => Math.max(0, current + (following ? -1 : 1)));
+    }
+    setFollowWorking(false);
+  }
+  async function startConversation() {
+    setChatWorking(true);
+    const response = await fetch("/api/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sellerId: id }),
+    });
+    const result = await response.json();
+    if (response.status === 401) {
+      window.location.href = `/api/auth?returnTo=/armario/${id}`;
+      return;
+    }
+    if (response.ok)
+      window.location.href = `/perfil/mensagens/${result.conversationId}`;
+    else {
+      window.alert(result.error || "Não foi possível iniciar a conversa.");
+      setChatWorking(false);
+    }
+  }
+  if (loading)
+    return (
+      <main className="dynamic-product-state">
+        <span className="spinner" />
+        <p>Carregando armário...</p>
+      </main>
+    );
+  if (error || !seller)
+    return (
+      <main className="dynamic-product-state">
+        <PackageCheck />
+        <h1>Armário indisponível</h1>
+        <p>{error || "Este perfil não está disponível."}</p>
+        <a href="/buscar">Voltar ao catálogo</a>
+      </main>
+    );
+  const place =
+    [seller.city, seller.state].filter(Boolean).join(", ") || "Brasil";
+  const year = new Date(seller.member_since).getFullYear();
+  return (
+    <main>
+      <header className="topbar">
+        <div className="topbar-inner">
+          <a className="brand" href="/">
+            <span className="brand-cycle">
+              <Leaf />
+            </span>
+            <span>
+              ViraVeste<small>Seu armário em movimento.</small>
+            </span>
+          </a>
+          <form className="top-search" action="/buscar">
+            <Search />
+            <input
+              name="q"
+              aria-label="Buscar"
+              placeholder="Buscar peças, marcas ou armários"
+            />
+            <button>Buscar</button>
+          </form>
+          <a className="login desktop-only" href="/entrar">
+            Entrar
+          </a>
+          <a className="sell desktop-only" href="/vender">
+            Vender
+          </a>
+        </div>
+      </header>
+      <div className="closet-page">
+        <a className="public-closet-back" href="/buscar">
+          <ArrowLeft /> Voltar ao catálogo
+        </a>
+        <section className="closet-profile">
+          <div className="closet-cover">
+            <img
+              src="/images/editorial-verere.png"
+              alt="Seleção de moda circular ViraVeste"
+            />
+          </div>
+          <div className="closet-identity">
+            {seller.avatar_url ? (
+              <img
+                className="closet-avatar public-avatar-image"
+                src={seller.avatar_url}
+                alt="Foto do vendedor"
+              />
+            ) : (
+              <span className="closet-avatar">
+                {initials(seller.display_name)}
+              </span>
+            )}
+            <div className="closet-name">
+              <div>
+                <h1>{seller.display_name}</h1>
+                <CheckCircle2 />
+              </div>
+              <p>
+                <MapPin /> {place} · Na ViraVeste desde {year}
+              </p>
+            </div>
+            <div className="closet-profile-actions">
+              {isOwn ? (
+                <a className="follow" href="/perfil#configuracoes">
+                  Editar meu perfil
+                </a>
+              ) : (
+                <>
+                  <button
+                    className={`follow ${following ? "following" : ""}`}
+                    disabled={followWorking}
+                    onClick={toggleFollow}
+                  >
+                    {following ? <Check /> : <UserPlus />}
+                    {following ? "Seguindo" : "Seguir"}
+                  </button>
+                  <button
+                    className="message"
+                    disabled={chatWorking}
+                    onClick={startConversation}
+                  >
+                    <MessageCircle /> {chatWorking ? "Abrindo..." : "Conversar"}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="closet-bio">
+            <p>
+              {seller.bio ||
+                "Peças usadas em bom estado, prontas para ganhar novas histórias."}
+            </p>
+            <dl>
+              <div>
+                <dt>{listings.length}</dt>
+                <dd>Peças disponíveis</dd>
+              </div>
+              <div>
+                <dt>{followers}</dt>
+                <dd>Seguidores</dd>
+              </div>
+              <div>
+                <dt>
+                  {reviewTotal ? reviewAverage.toLocaleString("pt-BR") : "Novo"}
+                </dt>
+                <dd>
+                  <Star />{" "}
+                  {reviewTotal === 1
+                    ? "1 avaliação"
+                    : `${reviewTotal} avaliações`}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+        <nav className="closet-tabs">
+          <a className="active" href="#pecas">
+            Peças <span>{listings.length}</span>
+          </a>
+          <a href="#sobre">Sobre</a>
+        </nav>
+        <div className="closet-content">
+          <section className="closet-listings" id="pecas">
+            <div className="closet-section-heading">
+              <div>
+                <p className="eyebrow">Disponíveis agora</p>
+                <h2>Peças do armário</h2>
+              </div>
+            </div>
+            {listings.length ? (
+              <div className="closet-product-grid">
+                {listings.map((item) => (
+                  <article className="closet-product" key={item.id}>
+                    <div className="closet-product-image">
+                      <a href={`/produto/${item.id}`}>
+                        <img
+                          src={
+                            item.image_urls[0] || "/images/editorial-verere.png"
+                          }
+                          alt={item.title}
+                        />
+                      </a>
+                      <span>{item.item_condition}</span>
+                      <button
+                        disabled={working === item.id}
+                        className={favorites.has(item.id) ? "active" : ""}
+                        onClick={() => toggleFavorite(item.id)}
+                        aria-label={
+                          favorites.has(item.id)
+                            ? `Remover ${item.title} dos favoritos`
+                            : `Favoritar ${item.title}`
+                        }
+                      >
+                        <Heart />
+                      </button>
+                    </div>
+                    <div>
+                      <p>
+                        {item.brand || "Sem marca"}
+                        {item.size
+                          ? ` · Tam. ${item.size}`
+                          : item.dimensions
+                            ? ` · ${item.dimensions}`
+                            : ""}
+                      </p>
+                      <h3>{item.title}</h3>
+                      <strong>
+                        {item.sale_mode === "auction"
+                          ? money(item.starting_bid)
+                          : money(item.price)}
+                      </strong>
+                      <small className="public-closet-mode">
+                        {item.sale_mode === "auction" ? (
+                          <>
+                            <Gavel /> Leilão
+                          </>
+                        ) : (
+                          <>
+                            <Tag /> Preço fixo
+                          </>
+                        )}
+                      </small>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="public-closet-empty">
+                <PackageCheck />
+                <h3>Este armário está se renovando</h3>
+                <p>Não há anúncios disponíveis agora.</p>
+              </div>
+            )}
+          </section>
+          <aside className="closet-aside">
+            <section className="closet-trust-card">
+              <h2>Perfil protegido</h2>
+              <ul>
+                <li>
+                  <ShieldCheck />
+                  <span>
+                    <strong>Dados pessoais preservados</strong>
+                    <small>
+                      Contato, endereço e documentos nunca são exibidos
+                      publicamente.
+                    </small>
+                  </span>
+                </li>
+                <li>
+                  <PackageCheck />
+                  <span>
+                    <strong>Anúncios da plataforma</strong>
+                    <small>
+                      Somente itens publicados aparecem neste armário.
+                    </small>
+                  </span>
+                </li>
+                <li>
+                  <MessageCircle />
+                  <span>
+                    <strong>Comunicação segura</strong>
+                    <small>As conversas são feitas dentro do ViraVeste.</small>
+                  </span>
+                </li>
+              </ul>
+            </section>
+            <section className="public-seller-about" id="sobre">
+              <p className="eyebrow">Sobre</p>
+              <h2>Sobre {seller.display_name}</h2>
+              <p>
+                {seller.bio ||
+                  "Este vendedor ainda não escreveu uma apresentação."}
+              </p>
+              <small>
+                <MapPin /> {place} · membro desde {year}
+              </small>
+            </section>
+            <section className="reviews-public" id="avaliacoes">
+              <p className="eyebrow">Reputação</p>
+              <h2>Avaliações</h2>
+              {reviewTotal ? (
+                <>
+                  <div className="reviews-summary">
+                    <Star />
+                    <strong>{reviewAverage.toLocaleString("pt-BR")}</strong>
+                    <span>
+                      {reviewTotal === 1
+                        ? "1 avaliação"
+                        : `${reviewTotal} avaliações`}
+                    </span>
+                  </div>
+                  <div className="reviews-list">
+                    {reviews.map((review) => (
+                      <article key={review.id}>
+                        <div>
+                          <strong>
+                            {review.reviewer?.display_name ||
+                              "Pessoa da comunidade"}
+                          </strong>
+                          {Array.from({ length: review.rating }).map(
+                            (_, index) => (
+                              <Star key={index} />
+                            ),
+                          )}
+                        </div>
+                        {review.comment && <p>{review.comment}</p>}
+                        <time dateTime={review.created_at}>
+                          {new Date(review.created_at).toLocaleDateString(
+                            "pt-BR",
+                          )}
+                        </time>
+                      </article>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="reviews-empty">
+                  Este perfil ainda não recebeu avaliações.
+                </p>
+              )}
+            </section>
+          </aside>
+        </div>
+      </div>
+      <footer>
+        <div>
+          <a className="footer-brand" href="/">
+            ViraVeste
+          </a>
+          <p>Seu armário em movimento.</p>
+        </div>
+        <nav>
+          <a href="/politicas">Políticas</a>
+          <a href="/politicas#privacidade">Privacidade</a>
+        </nav>
+        <span>© 2026 ViraVeste</span>
+      </footer>
+    </main>
+  );
 }

@@ -4,6 +4,7 @@
 @import "./orders-real.css";
 @import "./tracking.css";
 @import "./notifications.css";
+@import "./reviews.css";
 @import "tw-animate-css";
 @import "../vendor/shadcn-tailwind-4.13.0.css";
 :root{--forest:#173f35;--deep:#102e29;--sand:#ede1d3;--cream:#f7f2e8;--terra:#f05a47;--sun:#f4c95d;--french:#294c73;--ink:#302b27;--muted:#766f68;--line:#ddd3c6}
