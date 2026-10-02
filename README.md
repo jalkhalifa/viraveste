@@ -4,6 +4,24 @@ Marketplace brasileiro de produtos de segunda mão com vendas diretas e leilões
 
 **Projeto autoral de Jamila Khalifa, em desenvolvimento.**
 
+## Prévia do projeto
+
+Capturas do protótipo em desenvolvimento, executado localmente no computador.
+
+### Página inicial
+
+![Página inicial do ViraVeste com busca, categorias e apresentação dos armários](docs/images/inicio-desktop.png)
+
+### Acesso à conta
+
+![Tela de acesso à conta do ViraVeste](docs/images/login-desktop.png)
+
+### Compras e vendas — ambiente demonstrativo
+
+![Tela de compras e vendas com pedido demonstrativo](docs/images/pedidos-demo-desktop.png)
+
+Os dados de pedido, valores e estados apresentados nesta última captura pertencem ao fluxo demonstrativo. A imagem não comprova processamento de pagamentos ou operação comercial real.
+
 ## Estado atual
 
 O projeto contém a interface completa do protótipo, autenticação pelo Supabase,
