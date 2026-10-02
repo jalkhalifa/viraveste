@@ -1,7 +1,8 @@
-<<<<<<< HEAD
 # ViraVeste
 
 Marketplace brasileiro de produtos de segunda mão com vendas diretas e leilões.
+
+**Projeto autoral de Jamila Khalifa, em desenvolvimento.**
 
 ## Estado atual
 
@@ -81,8 +82,16 @@ npm run lint
 4. Criar pedidos, mensagens, avaliações, leilões e lances.
 5. Integrar pagamentos, logística e painel administrativo.
 
-Projeto privado. Todos os direitos reservados.
-=======
-# viraveste
-Marketplace brasileiro de produtos de segunda mão com vendas diretas e leilões.
->>>>>>> 57d5835a308a07ac5daa22b1ea6d0f82447030b5
+## Tecnologias
+
+React · TypeScript · Tailwind CSS · Supabase · Vite · Vinext · Drizzle ORM
+
+O projeto utiliza a estrutura de rotas do Next.js e scripts de desenvolvimento e build com Vite/Vinext, conforme o `package.json`.
+
+## Autoria
+
+Desenvolvimento individual por **Jamila Khalifa**.
+
+[Portfólio](https://portfolio-jamila-khalifa.netlify.app/) · [GitHub](https://github.com/jalkhalifa)
+
+Todos os direitos reservados. A disponibilização pública do repositório não concede automaticamente uma licença de reutilização.
